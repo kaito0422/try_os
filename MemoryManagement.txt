@@ -10,6 +10,7 @@ struct page {
     pgoff_t                 index;
     struct list_head        lru;
     void                    *virtual;
+    ...
 };
 一般一个虚拟页会映射到一个物理页，即内存映射的最小单位是页（32位机上一般是4KB大小）。
 
@@ -21,3 +22,33 @@ ZONE_HIGHMEM：高端内存，其中的物理页并不能永久映射到内核�
 ZONE_HIGHMEM：高端内存，在x86中指的是大于896MB的物理内存空间，内核不能直接使用这部分物理地址空间
 对于高端内存的理解，参见 https://www.cnblogs.com/wuchanming/p/4756911.html
 也可以查看本目录先的MemMan.pdf
+
+struct zone {
+    unsigned long           watermark[NR_WMARK];    // 该物理内存区域的最小值，最低水位，最高水位
+    spinlock_t              lock;                   // 自旋锁，防止该结构被并发访问
+    struct free_area        free_area[MAX_ORDER];   // MAX_ORDER默认为11，该数组用于存伙伴算法中的不同物理页数量的链表
+    struct zone_lru {                               // 物理页替换LRU使用的链表，当物理页被访问过，就把该物理页对应的节点插到最前面，防止被替换
+        struct list_head    list;
+        unsigned long       nr_saved_scan;
+    } lru[NR_LRU_LISTS];
+    unsigned long           flags;
+    const char              *name;                  // 用字符串表示该区域的名字
+    ...
+};
+
+Linux中伙伴算法（用来申请获取比较大的物理内存，一般要大于一个页的大小）
+在频繁地请求和释放不同大小的一组连续的物理页，必然会导致出现许多分散的小块的空闲页面，这就会导致命名可用内存的总大小超过请求需求，但是由于分散在不同
+的地方，导致无法满足物理页的申请。
+在用于描述物理区的结构体zone里面，有一个数组struct free_area free_area[MAX_ORDER]，该结构就是用于伙伴算法的。其中每一个元素也是一个结构体，其实现
+如下：
+struct free_area {
+    struct list_head free_list; // 空闲页的双向链表
+    unsigned long nr_free;      // 空闲页的数量
+};
+而free_area[k]表示一次分配物理页的数量为2^k个物理页对应的空闲链表。所以如果我们要分配2^k个物理页，就去zone中free_area数组的free_area[k]对应的链表
+里面去寻找空闲的节点，分配出来使用；如果我们到free_area[k]对应的链表里面去找，发小没有空闲的节点了，则去free_area[k+1]的链表里面去找，然后进行分
+割，将其中的一半用于当前内存申请，另一半挂到free_area[k]对应的链表上。
+在释放物理页的时候，根据伙伴位图，判断释放的物理页是否需要进行内存合并（即存在伙伴关系），如果存在伙伴关系，则需要进行合并，再重新进行合并判断，一直
+合并，直到不能合并为止（所以对于伙伴算法来说，一开始还是一整块大内存，通过不断的申请物理页来构建free_area链表）
+
+Linux中的slab机制（用来频繁分配较小的内存，用于数据结构，达不到物理页那样的大小）
