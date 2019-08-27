@@ -20,4 +20,4 @@ ZONE_HIGHMEM：高端内存，其中的物理页并不能永久映射到内核�
 
 ZONE_HIGHMEM：高端内存，在x86中指的是大于896MB的物理内存空间，内核不能直接使用这部分物理地址空间
 对于高端内存的理解，参见 https://www.cnblogs.com/wuchanming/p/4756911.html
-也可以查看本目录先的MemMan.png
+也可以查看本目录先的MemMan.pdf
