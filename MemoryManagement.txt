@@ -1,0 +1,12 @@
+Linux操作系统中的内存管理
+Linux对于物理内存的管理都是以页page为单位的，使用struct page这个结构体来描述一个物理页的信息
+struct page {
+    unsigned long           flags;
+    atomic_t                _count;
+    atomic_t                _mapcount;
+    unsigned long           private;
+    struct address_space    *mapping;
+    pgoff_t                 index;
+    struct list_head        lru;
+    void                    *virtual;
+};
