@@ -1,4 +1,5 @@
 Linux操作系统中的内存管理
+
 Linux对于物理内存的管理都是以页page为单位的，使用struct page这个结构体来描述一个物理页的信息
 struct page {
     unsigned long           flags;          // 标记是否为脏位；是否被锁定在内存中等
@@ -10,3 +11,13 @@ struct page {
     struct list_head        lru;
     void                    *virtual;
 };
+一般一个虚拟页会映射到一个物理页，即内存映射的最小单位是页（32位机上一般是4KB大小）。
+
+根据物理页的功能不同，可以将物理页划分成区zone。Linux中的区分为3种
+ZONE_DMA：该部分区域的物理页能够用于DMA传输数据（在x86上是指小于16MB的物理内存）
+ZONE_NORMAL：该部分的物理页都是能够正常映射的页（在x86上范围在16~896MB之间的物理内存）
+ZONE_HIGHMEM：高端内存，其中的物理页并不能永久映射到内核地址空间（在x86上是指大于896MB的物理内存）
+
+ZONE_HIGHMEM：高端内存，在x86中指的是大于896MB的物理内存空间，内核不能直接使用这部分物理地址空间
+对于高端内存的理解，参见 https://www.cnblogs.com/wuchanming/p/4756911.html
+也可以查看本目录先的MemMan.png
