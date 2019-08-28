@@ -4,35 +4,35 @@
 系统调用号被存在%eax寄存器中（x86），传入\linux-2.6.36.4\arch\x86\kernel\entry_32.S
 
 ENTRY(system_call)
-	...
+    ...
 syscall_call:
-	call *sys_call_table(,%eax,4)
-	movl %eax,PT_EAX(%esp)		# store the return value
+    call *sys_call_table(,%eax,4)
+    movl %eax,PT_EAX(%esp)		# store the return value
   
 其中该部分程序会根据%eax寄存器中存放的系统调用号，去\linux-2.6.36.4\arch\x86\kernel\syscall_table_32.S里面去找对应的函数地址，然后跳转过去执行
 
 ENTRY(sys_call_table)
-	.long sys_restart_syscall	/* 0 - old "setup()" system call, used for restarting */
-	.long sys_exit
-	.long ptregs_fork
-	.long sys_read
-	.long sys_write
-	.long sys_open		/* 5 */
-	.long sys_close
-	.long sys_waitpid
-	.long sys_creat
-	.long sys_link
-	.long sys_unlink	/* 10 */
-	.long ptregs_execve
-	.long sys_chdir
-	.long sys_time
-	.long sys_mknod
-	.long sys_chmod		/* 15 */
-	.long sys_lchown16
-	.long sys_ni_syscall	/* old break syscall holder */
-	.long sys_stat
-	.long sys_lseek
-	.long sys_getpid	/* 20 */
+    .long sys_restart_syscall    /* 0 - old "setup()" system call, used for restarting */
+    .long sys_exit
+    .long ptregs_fork
+    .long sys_read
+    .long sys_write
+    .long sys_open                /* 5 */
+    .long sys_close
+    .long sys_waitpid
+    .long sys_creat
+    .long sys_link
+    .long sys_unlink              /* 10 */
+    .long ptregs_execve
+    .long sys_chdir
+    .long sys_time
+    .long sys_mknod
+    .long sys_chmod		  /* 15 */
+    .long sys_lchown16
+    .long sys_ni_syscall	  /* old break syscall holder */
+    .long sys_stat
+    .long sys_lseek
+    .long sys_getpid	          /* 20 */
   ...
 
 但是这个表里面的函数给出里函数地址，是在哪里实现的呢？
@@ -44,15 +44,15 @@ ENTRY(sys_call_table)
 sys_open的函数声明，但是在具体实现的文件里面linux-2.6.36.4\fs\open.c，函数的定义却是如下形式
 SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
 {
-	long ret;
+    long ret;
 
-	if (force_o_largefile())
-		flags |= O_LARGEFILE;
+    if (force_o_largefile())
+        flags |= O_LARGEFILE;
 
-	ret = do_sys_open(AT_FDCWD, filename, flags, mode);
-	/* avoid REGPARM breakage on x86: */
-	asmlinkage_protect(3, ret, filename, flags, mode);
-	return ret;
+    ret = do_sys_open(AT_FDCWD, filename, flags, mode);
+    /* avoid REGPARM breakage on x86: */
+    asmlinkage_protect(3, ret, filename, flags, mode);
+    return ret;
 }
 
 由此可见，SYSCALL_DEFINE3并不是函数名，因为它是一个宏，在\linux-2.6.36.4\include\linux\syscalls.h给出，涉及到的宏如下
@@ -63,8 +63,8 @@ SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
 #define __SC_DECL5(t5, a5, ...) t5 a5, __SC_DECL4(__VA_ARGS__)
 #define __SC_DECL6(t6, a6, ...) t6 a6, __SC_DECL5(__VA_ARGS__)
 
-#define SYSCALL_DEFINEx(x, sname, ...)			__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
-#define __SYSCALL_DEFINEx(x, name, ...)			asmlinkage long sys##name(__SC_DECL##x(__VA_ARGS__))
+#define SYSCALL_DEFINEx(x, sname, ...)        __SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
+#define __SYSCALL_DEFINEx(x, name, ...)       asmlinkage long sys##name(__SC_DECL##x(__VA_ARGS__))
 
 #define SYSCALL_DEFINE0(name)	   asmlinkage long sys_##name(void)
 #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
@@ -76,33 +76,33 @@ SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
 
 我们利用该宏来做两次从系统调用号到系统调用函数具体实现的转换
 第一个系统调用号5，sys_open
-  从\linux-2.6.36.4\arch\x86\kernel\syscall_table_32.S中我们获取到sys_open的函数地址，然后就可以跳转过去执行了；
-  sys_open的函数声明在syscalls.h文件里面，如下
+    从\linux-2.6.36.4\arch\x86\kernel\syscall_table_32.S中我们获取到sys_open的函数地址，然后就可以跳转过去执行了；
+    sys_open的函数声明在syscalls.h文件里面，如下
     asmlinkage long sys_open(const char __user *filename, int flags, int mode);
-  系统调用函数的具体实现在linux-2.6.36.4\fs\open.c中
-    SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
-    {
-      long ret;
+    系统调用函数的具体实现在linux-2.6.36.4\fs\open.c中
+        SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
+        {
+            long ret;
 
-      if (force_o_largefile())
-        flags |= O_LARGEFILE;
+            if (force_o_largefile())
+                flags |= O_LARGEFILE;
 
-      ret = do_sys_open(AT_FDCWD, filename, flags, mode);
-      /* avoid REGPARM breakage on x86: */
-      asmlinkage_protect(3, ret, filename, flags, mode);
-      return ret;
-    } 
-  1. SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
-  2. SYSCALL_DEFINEx(3, _open, const char __user *, filename, int, flags, int, mode)
-  3. __SYSCALL_DEFINEx(3, _open, const char __user *, filename, int, flags, int, mode)
-  4. asmlinkage long sys_open(const char __user *filename, int flags, int mode)         // 即函数定义的形式
+            ret = do_sys_open(AT_FDCWD, filename, flags, mode);
+            /* avoid REGPARM breakage on x86: */
+            asmlinkage_protect(3, ret, filename, flags, mode);
+            return ret;
+        } 
+    1. SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, int, mode)
+    2. SYSCALL_DEFINEx(3, _open, const char __user *, filename, int, flags, int, mode)
+    3. __SYSCALL_DEFINEx(3, _open, const char __user *, filename, int, flags, int, mode)
+    4. asmlinkage long sys_open(const char __user *filename, int flags, int mode)            // 即函数定义的形式
   
 第二个系统调用号20，sys_getpid
-  在\linux-2.6.36.4\include\linux\syscalls.h的声明为asmlinkage long sys_getpid(void);
-  具体实现在\linux-2.6.36.4\kernel\timer.c中
-    SYSCALL_DEFINE0(getpid)
-    {
-      return task_tgid_vnr(current);
-    }
-  1. SYSCALL_DEFINE0(getpid)
-  2. asmlinkage long sys_getpid(void)
+    在\linux-2.6.36.4\include\linux\syscalls.h的声明为asmlinkage long sys_getpid(void);
+    具体实现在\linux-2.6.36.4\kernel\timer.c中
+        SYSCALL_DEFINE0(getpid)
+        {
+            return task_tgid_vnr(current);
+        }
+    1. SYSCALL_DEFINE0(getpid)
+    2. asmlinkage long sys_getpid(void)
