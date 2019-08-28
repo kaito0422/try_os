@@ -3,10 +3,11 @@
 首先，应用程序在系统调用的时候，会产生系统调用号（一般C库会处理这个过程）；
 系统调用号被存在%eax寄存器中（x86），传入\linux-2.6.36.4\arch\x86\kernel\entry_32.S
 
-sysenter_do_call:
-	cmpl $(nr_syscalls), %eax
-	jae syscall_badsys
+ENTRY(system_call)
+	...
+syscall_call:
 	call *sys_call_table(,%eax,4)
+	movl %eax,PT_EAX(%esp)		# store the return value
   
 其中该部分程序会根据%eax寄存器中存放的系统调用号，去\linux-2.6.36.4\arch\x86\kernel\syscall_table_32.S里面去找对应的函数地址，然后跳转过去执行
 
